@@ -11,14 +11,12 @@ import Embers from "./Embers";
 import { useReveal, useCountUp } from "./useReveal";
 import "./invitation.css";
 
-export type Phase = "flight" | "present" | "unroll" | "expand" | "site";
+export type Phase = "playing" | "presented" | "unrolling" | "expanded" | "site";
 
-// Timeline (ms) from the start of video playback
-// The video is 10s: owl flies across night sky, brings scroll forward ~8.2s
-const T_PRESENT = 8200;
-const AUTO_OPEN_DELAY = 2600; // auto-open if user doesn't tap the seal
-const T_EXPAND = 2400; // unroll animation duration
-const T_SITE = T_EXPAND + 1200;
+// Animation phase durations (ms)
+const AUTO_OPEN_DELAY = 2800; // Time in 'presented' before auto-unfurling
+const DURATION_UNROLL = 2200; // Synchronized unroll clip and rolls duration
+const DURATION_EXPAND = 1200; // Synchronized expand to full letter duration
 
 // Ragged "torn parchment" bottom edge
 const TORN = (() => {
@@ -37,6 +35,7 @@ const CANDLES = Array.from({ length: 13 }, (_, i) => ({
   h: 44 + ((i * 17) % 26),
 }));
 
+/** Synthesize tactile wax seal crack and parchment unfurling audio via Web Audio API */
 function playScrollOpenSound() {
   try {
     const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -86,67 +85,98 @@ function playScrollOpenSound() {
     rustleGain.connect(ctx.destination);
     rustleSource.start(ctx.currentTime + 0.05);
   } catch {
-    // Ignore if audio context is blocked
+    // Audio optional / blocked
   }
 }
 
 export default function Invitation({ recipient }: { recipient: InvitationRecipient }) {
-  const [phase, setPhase] = useState<Phase>("flight");
-  const started = useRef(false);
+  const [phase, setPhase] = useState<Phase>("playing");
+  const videoRef = useRef<HTMLVideoElement>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const hasEndedRef = useRef(false);
+
+  const clearAllTimers = useCallback(() => {
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+  }, []);
 
   const openScroll = useCallback(() => {
-    playScrollOpenSound();
-    setPhase("unroll");
-    timers.current.push(
-      setTimeout(() => setPhase("expand"), T_EXPAND),
-      setTimeout(() => setPhase("site"), T_SITE)
-    );
-  }, []);
+    setPhase((current) => {
+      if (current !== "presented") return current;
+      playScrollOpenSound();
+      clearAllTimers();
 
-  const skipToSite = useCallback(() => {
-    timers.current.forEach(clearTimeout);
-    setPhase("site");
-  }, []);
+      // Trigger unroll -> expand -> site sequence
+      timers.current.push(
+        setTimeout(() => {
+          setPhase("expanded");
+          timers.current.push(
+            setTimeout(() => {
+              setPhase("site");
+            }, DURATION_EXPAND)
+          );
+        }, DURATION_UNROLL)
+      );
 
-  const begin = useCallback(() => {
-    if (started.current) return;
-    started.current = true;
+      return "unrolling";
+    });
+  }, [clearAllTimers]);
+
+  const handleVideoEnded = useCallback(() => {
+    if (hasEndedRef.current) return;
+    hasEndedRef.current = true;
+    setPhase("presented");
+
+    // Automatically trigger opening ceremony if user doesn't click after delay
     timers.current.push(
       setTimeout(() => {
-        setPhase("present");
-        // Automatically open if unattended after AUTO_OPEN_DELAY
-        timers.current.push(setTimeout(openScroll, AUTO_OPEN_DELAY));
-      }, T_PRESENT)
+        openScroll();
+      }, AUTO_OPEN_DELAY)
     );
   }, [openScroll]);
 
-  useEffect(() => {
-    const t = timers.current;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      const r = setTimeout(() => setPhase("site"), 0);
-      return () => clearTimeout(r);
+  const skipToSite = useCallback(() => {
+    clearAllTimers();
+    if (videoRef.current) {
+      videoRef.current.pause();
     }
-    // Fallback if video autoplay blocked
-    const fallback = setTimeout(begin, 4000);
+    setPhase("site");
+  }, [clearAllTimers]);
+
+  useEffect(() => {
+    // Respect user motion preference
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setPhase("site");
+      return;
+    }
+
+    // Safety fallback: if video stalls or autoplay is blocked, transition gracefully
+    const fallbackTimer = setTimeout(() => {
+      const v = videoRef.current;
+      if (v && v.paused && v.currentTime === 0 && !hasEndedRef.current) {
+        handleVideoEnded();
+      }
+    }, 4500);
+
     return () => {
-      clearTimeout(fallback);
-      t.forEach(clearTimeout);
+      clearTimeout(fallbackTimer);
+      clearAllTimers();
     };
-  }, [begin]);
+  }, [handleVideoEnded, clearAllTimers]);
 
   return (
     <div className="inv" data-phase={phase}>
-      {/* Skip button for quick navigation */}
+      {/* Skip button for immediate access */}
       {phase !== "site" && (
         <button className="skip-btn" onClick={skipToSite} aria-label="Skip intro to invitation">
           Skip to Invitation ✦
         </button>
       )}
 
-      {/* Cinematic owl-post video */}
-      <div className="stage">
+      {/* Cinematic introductory video layer */}
+      <div className="stage" aria-hidden={phase === "site"}>
         <video
+          ref={videoRef}
           className="stage-video"
           src="/assets/owl-flight.mp4"
           poster="/assets/owl-flight.jpg"
@@ -154,32 +184,32 @@ export default function Invitation({ recipient }: { recipient: InvitationRecipie
           playsInline
           autoPlay
           preload="auto"
-          onPlaying={begin}
-          onError={begin}
+          onEnded={handleVideoEnded}
         />
         <div className="vignette" />
       </div>
 
       {/* Authentic Rolled Parchment Scroll Container */}
       <div className="scroll-ceremony" aria-label="Imperial Summons Scroll">
-        {/* Closed Scroll Body (Presented after owl flight) */}
+        {/* Closed Scroll Body (Presented immediately as video finishes) */}
         <div
           className="authentic-closed-scroll"
-          onClick={phase === "present" ? openScroll : undefined}
-          role={phase === "present" ? "button" : undefined}
-          tabIndex={phase === "present" ? 0 : -1}
+          onClick={phase === "presented" ? openScroll : undefined}
+          role={phase === "presented" ? "button" : undefined}
+          tabIndex={phase === "presented" ? 0 : -1}
+          aria-label={phase === "presented" ? "Break wax seal to open summons" : undefined}
           onKeyDown={(e) => {
-            if (phase === "present" && (e.key === "Enter" || e.key === " ")) {
+            if (phase === "presented" && (e.key === "Enter" || e.key === " ")) {
               e.preventDefault();
               openScroll();
             }
           }}
         >
-          {/* Authentic Rolled Parchment Letter Asset */}
+          {/* Authentic Rolled Parchment Letter Graphic */}
           <div className="scroll-graphic">
             <Image
               src="/assets/authentic-scroll-cropped.png"
-              alt="Authentic Rolled Parchment Scroll"
+              alt="Imperial Summons Scroll"
               width={881}
               height={326}
               className="scroll-img"
@@ -189,29 +219,29 @@ export default function Invitation({ recipient }: { recipient: InvitationRecipie
 
           {/* Interactive Wax Seal on the Flap */}
           <div className="wax-seal-interactive">
-            {phase === "unroll" || phase === "expand" || phase === "site" ? (
+            {phase === "unrolling" || phase === "expanded" || phase === "site" ? (
               <div className="seal-cracked">
                 <div className="seal-half left">
-                  <Image src="/assets/authentic-seal-l.png" alt="Broken Seal Left" width={156} height={156} priority />
+                  <Image src="/assets/authentic-seal-l.png" alt="Broken Wax Seal Left" width={156} height={156} priority />
                 </div>
                 <div className="seal-half right">
-                  <Image src="/assets/authentic-seal-r.png" alt="Broken Seal Right" width={156} height={156} priority />
+                  <Image src="/assets/authentic-seal-r.png" alt="Broken Wax Seal Right" width={156} height={156} priority />
                 </div>
               </div>
             ) : (
               <div className="seal-intact">
-                <Image src="/assets/authentic-seal.png" alt="Wax Seal" width={156} height={156} priority />
+                <Image src="/assets/authentic-seal.png" alt="Imperial Wax Seal" width={156} height={156} priority />
                 <div className="seal-aura" />
               </div>
             )}
             <div className="magic-burst" />
           </div>
 
-          {/* Call to action prompt */}
-          {phase === "present" && (
+          {/* Interactive Call to Action Prompt */}
+          {phase === "presented" && (
             <div className="break-seal-prompt">
               <span className="prompt-spark">✦</span>
-              <span>Tap the Wax Seal to Break &amp; Open</span>
+              <span>Tap the Wax Seal to Open</span>
               <span className="prompt-spark">✦</span>
             </div>
           )}
