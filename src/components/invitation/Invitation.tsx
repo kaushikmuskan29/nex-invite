@@ -173,13 +173,13 @@ export default function Invitation({ recipient }: { recipient: InvitationRecipie
         </button>
       )}
 
-      {/* Cinematic introductory video layer */}
+      {/* Cinematic introductory video layer (using newly added nexhack-owl-video.mp4) */}
       <div className="stage" aria-hidden={phase === "site"}>
         <video
           ref={videoRef}
           className="stage-video"
-          src="/assets/owl-flight.mp4"
-          poster="/assets/owl-flight.jpg"
+          src="/assets/nexhack-owl-video.mp4"
+          poster="/assets/night-sky.jpg"
           muted
           playsInline
           autoPlay
@@ -205,7 +205,7 @@ export default function Invitation({ recipient }: { recipient: InvitationRecipie
             }
           }}
         >
-          {/* Authentic Rolled Parchment Letter Graphic */}
+          {/* Authentic Rolled Parchment Letter Graphic matching the video scroll */}
           <div className="scroll-graphic">
             <Image
               src="/assets/authentic-scroll-cropped.png"
@@ -217,7 +217,7 @@ export default function Invitation({ recipient }: { recipient: InvitationRecipie
             />
           </div>
 
-          {/* Interactive Wax Seal on the Flap */}
+          {/* Interactive Wax Seal on the Flap with Twine Cords */}
           <div className="wax-seal-interactive">
             {phase === "unrolling" || phase === "expanded" || phase === "site" ? (
               <div className="seal-cracked">
@@ -232,6 +232,14 @@ export default function Invitation({ recipient }: { recipient: InvitationRecipie
               <div className="seal-intact">
                 <Image src="/assets/authentic-seal.png" alt="Imperial Wax Seal" width={156} height={156} priority />
                 <div className="seal-aura" />
+                <div className="seal-cords">
+                  <svg viewBox="0 0 36 44" className="cord-svg" aria-hidden="true">
+                    <path d="M16 2 C14 14, 10 26, 6 42" stroke="#2c1408" strokeWidth="2.8" fill="none" strokeLinecap="round" />
+                    <path d="M16 2 C15 14, 11 26, 7 42" stroke="#6b371a" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+                    <path d="M20 2 C21 16, 26 28, 30 42" stroke="#2c1408" strokeWidth="2.8" fill="none" strokeLinecap="round" />
+                    <path d="M20 2 C21 16, 25 28, 29 42" stroke="#6b371a" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+                  </svg>
+                </div>
               </div>
             )}
             <div className="magic-burst" />
