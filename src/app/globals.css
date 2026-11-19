@@ -1,0 +1,316 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: #03040a;
+    --foreground: #f5ebd3;
+    --gold: #c9a45c;
+    --gold-light: #f3d68b;
+    --gold-dark: #8b6b2a;
+    --parchment: #e8d6ae;
+    --parchment-deep: #c4ad82;
+    --burgundy: #641c2a;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #03040a;
+    color: #f5ebd3;
+    font-family: var(--font-inter), sans-serif;
+    overflow-x: hidden;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes sealBurst {
+  0% {
+    opacity: 0.95;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.1);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-fadeSlideUp {
+  animation: fadeSlideUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-modalIn {
+  animation: modalIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-sealBurst {
+  animation: sealBurst 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fadeIn,
+  .animate-fadeSlideUp,
+  .animate-modalIn,
+  .animate-levitate,
+  .animate-candle,
+  .animate-pulse-glow {
+    animation: none !important;
+  }
+}
+
+.font-cinzel {
+  font-family: var(--font-cinzel), serif;
+}
+
+.font-decorative {
+  font-family: var(--font-cinzel-decorative), serif;
+}
+
+.font-spectral {
+  font-family: var(--font-spectral), serif;
+}
+
+/* Gold Text Gradients */
+.text-gold-gradient {
+  background: linear-gradient(135deg, #fff2cc 0%, #e0b459 35%, #c9a45c 60%, #9a7229 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gold-bright {
+  background: linear-gradient(180deg, #ffffff 0%, #ffdf79 45%, #d4aa48 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.border-gold-gradient {
+  border-image: linear-gradient(to bottom, #f3d68b, #c9a45c, #634a1e) 1;
+}
+
+/* Atmospheric Glows & Shadows */
+.glow-gold {
+  box-shadow: 0 0 25px rgba(201, 164, 92, 0.4), 0 0 50px rgba(201, 164, 92, 0.15);
+}
+
+.glow-seal {
+  box-shadow: 0 0 35px rgba(180, 40, 50, 0.65), 0 0 70px rgba(201, 164, 92, 0.35);
+}
+
+.glow-text-gold {
+  text-shadow: 0 0 12px rgba(243, 214, 139, 0.5), 0 0 25px rgba(201, 164, 92, 0.25);
+}
+
+/* Candle Flicker Effect */
+@keyframes candleFlicker {
+  0%, 100% {
+    opacity: 0.85;
+    transform: scale(1) translateY(0);
+    filter: drop-shadow(0 0 15px rgba(245, 175, 55, 0.7));
+  }
+  25% {
+    opacity: 0.95;
+    transform: scale(1.04) translateY(-1px) rotate(1deg);
+    filter: drop-shadow(0 0 22px rgba(255, 195, 75, 0.85));
+  }
+  50% {
+    opacity: 0.78;
+    transform: scale(0.96) translateY(1px) rotate(-1deg);
+    filter: drop-shadow(0 0 12px rgba(230, 150, 40, 0.6));
+  }
+  75% {
+    opacity: 0.92;
+    transform: scale(1.02) translateY(0) rotate(0.5deg);
+    filter: drop-shadow(0 0 18px rgba(250, 180, 60, 0.75));
+  }
+}
+
+.animate-candle {
+  animation: candleFlicker 3.2s infinite ease-in-out;
+}
+
+/* Floating stardust effect */
+@keyframes floatParticle {
+  0% {
+    transform: translateY(0) translateX(0) scale(0.8);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.8;
+  }
+  80% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(-120px) translateX(30px) scale(1.2);
+    opacity: 0;
+  }
+}
+
+/* Magical Shimmer */
+@keyframes magicalShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer-text {
+  background: linear-gradient(90deg, #b99249 0%, #fff6d6 50%, #b99249 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: magicalShimmer 4s infinite linear;
+}
+
+/* Custom Scrollbar for the site */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #03040a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #46341a;
+  border-radius: 4px;
+  border: 1px solid #c9a45c33;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #c9a45c88;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   EXTRAORDINARY CINEMATIC UTILITIES & 3D ILLUSIONS
+   ───────────────────────────────────────────────────────────── */
+
+@keyframes runeRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes runeRotateCounter {
+  0% {
+    transform: rotate(360deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.animate-rune-spin {
+  animation: runeRotate 28s linear infinite;
+}
+
+.animate-rune-counter {
+  animation: runeRotateCounter 22s linear infinite;
+}
+
+@keyframes pulseGlowSlow {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(0.98);
+    filter: drop-shadow(0 0 15px rgba(243, 214, 139, 0.4));
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+    filter: drop-shadow(0 0 35px rgba(243, 214, 139, 0.85));
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlowSlow 3.4s ease-in-out infinite;
+}
+
+@keyframes levitateSlow {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(0.4deg);
+  }
+}
+
+.animate-levitate {
+  animation: levitateSlow 5s ease-in-out infinite;
+}
+
+/* Gold Foil Bevel Effect */
+.gold-foil-border {
+  border: 1.5px solid transparent;
+  background: linear-gradient(#10172e, #070b1a) padding-box,
+              linear-gradient(135deg, #f5ebd3 0%, #c9a45c 40%, #ffdf79 60%, #8b6b2a 100%) border-box;
+}
+
+/* Royal Wax Seal 3D Relief */
+.wax-seal-3d {
+  background: radial-gradient(circle at 35% 30%, #a82438 0%, #701625 45%, #420b15 80%, #29050d 100%);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.85),
+    0 0 25px rgba(201, 164, 92, 0.4),
+    inset 0 2px 4px rgba(255, 180, 180, 0.4),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.7);
+}
+
+/* Antique Parchment Letter Drop Shadow & Edge Aging */
+.parchment-sheet-shadow {
+  box-shadow:
+    0 25px 80px rgba(0, 0, 0, 0.95),
+    0 0 50px rgba(201, 164, 92, 0.25),
+    inset 0 0 40px rgba(100, 70, 30, 0.35);
+}
+
+/* Gold Embossed Text Effect */
+.gold-embossed {
+  color: #38250f;
+  text-shadow:
+    0 1px 1px rgba(255, 245, 200, 0.8),
+    0 -1px 1px rgba(60, 40, 10, 0.5);
+}
+
