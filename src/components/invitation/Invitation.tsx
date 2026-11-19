@@ -11,16 +11,16 @@ import Embers from "./Embers";
 import { useReveal, useCountUp } from "./useReveal";
 import "./invitation.css";
 
-type Phase = "flight" | "zoom" | "unroll" | "expand" | "site";
+export type Phase = "flight" | "present" | "unroll" | "expand" | "site";
 
-// Timeline (ms) measured from the moment the owl video starts playing.
-// The video is 10s: owl enters ~1s, drops the scroll ~4s, scroll rests ~8.5s.
-const T_ZOOM = 8400;
-const T_UNROLL = 10100;
-const T_EXPAND = T_UNROLL + 2700;
-const T_SITE = T_EXPAND + 1600;
+// Timeline (ms) from the start of video playback
+// The video is 10s: owl flies across night sky, brings scroll forward ~8.2s
+const T_PRESENT = 8200;
+const AUTO_OPEN_DELAY = 2600; // auto-open if user doesn't tap the seal
+const T_EXPAND = 2400; // unroll animation duration
+const T_SITE = T_EXPAND + 1200;
 
-// Deterministic ragged "torn parchment" bottom edge.
+// Ragged "torn parchment" bottom edge
 const TORN = (() => {
   const pts = ["0% 0%", "100% 0%"];
   for (let i = 50; i >= 0; i--) {
@@ -37,21 +37,89 @@ const CANDLES = Array.from({ length: 13 }, (_, i) => ({
   h: 44 + ((i * 17) % 26),
 }));
 
+function playScrollOpenSound() {
+  try {
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+
+    // 1. Crisp wax crack snap
+    const snapLen = Math.floor(ctx.sampleRate * 0.12);
+    const snapBuf = ctx.createBuffer(1, snapLen, ctx.sampleRate);
+    const snapData = snapBuf.getChannelData(0);
+    for (let i = 0; i < snapLen; i++) {
+      snapData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.02));
+    }
+    const snapSource = ctx.createBufferSource();
+    snapSource.buffer = snapBuf;
+    const snapFilter = ctx.createBiquadFilter();
+    snapFilter.type = "highpass";
+    snapFilter.frequency.setValueAtTime(800, ctx.currentTime);
+    const snapGain = ctx.createGain();
+    snapGain.gain.setValueAtTime(0.4, ctx.currentTime);
+    snapGain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.11);
+    snapSource.connect(snapFilter);
+    snapFilter.connect(snapGain);
+    snapGain.connect(ctx.destination);
+    snapSource.start(ctx.currentTime);
+
+    // 2. Paper rustle / unroll sweep
+    const rustleLen = Math.floor(ctx.sampleRate * 0.6);
+    const rustleBuf = ctx.createBuffer(1, rustleLen, ctx.sampleRate);
+    const rustleData = rustleBuf.getChannelData(0);
+    for (let i = 0; i < rustleLen; i++) {
+      rustleData[i] = (Math.random() * 2 - 1) * Math.sin((Math.PI * i) / rustleLen);
+    }
+    const rustleSource = ctx.createBufferSource();
+    rustleSource.buffer = rustleBuf;
+    const rustleFilter = ctx.createBiquadFilter();
+    rustleFilter.type = "bandpass";
+    rustleFilter.frequency.setValueAtTime(1400, ctx.currentTime + 0.05);
+    rustleFilter.frequency.exponentialRampToValueAtTime(500, ctx.currentTime + 0.55);
+    rustleFilter.Q.setValueAtTime(2.0, ctx.currentTime);
+    const rustleGain = ctx.createGain();
+    rustleGain.gain.setValueAtTime(0.01, ctx.currentTime);
+    rustleGain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 0.15);
+    rustleGain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.58);
+    rustleSource.connect(rustleFilter);
+    rustleFilter.connect(rustleGain);
+    rustleGain.connect(ctx.destination);
+    rustleSource.start(ctx.currentTime + 0.05);
+  } catch {
+    // Ignore if audio context is blocked
+  }
+}
+
 export default function Invitation({ recipient }: { recipient: InvitationRecipient }) {
   const [phase, setPhase] = useState<Phase>("flight");
   const started = useRef(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
+  const openScroll = useCallback(() => {
+    playScrollOpenSound();
+    setPhase("unroll");
+    timers.current.push(
+      setTimeout(() => setPhase("expand"), T_EXPAND),
+      setTimeout(() => setPhase("site"), T_SITE)
+    );
+  }, []);
+
+  const skipToSite = useCallback(() => {
+    timers.current.forEach(clearTimeout);
+    setPhase("site");
+  }, []);
+
   const begin = useCallback(() => {
     if (started.current) return;
     started.current = true;
-    timers.current = [
-      setTimeout(() => setPhase("zoom"), T_ZOOM),
-      setTimeout(() => setPhase("unroll"), T_UNROLL),
-      setTimeout(() => setPhase("expand"), T_EXPAND),
-      setTimeout(() => setPhase("site"), T_SITE),
-    ];
-  }, []);
+    timers.current.push(
+      setTimeout(() => {
+        setPhase("present");
+        // Automatically open if unattended after AUTO_OPEN_DELAY
+        timers.current.push(setTimeout(openScroll, AUTO_OPEN_DELAY));
+      }, T_PRESENT)
+    );
+  }, [openScroll]);
 
   useEffect(() => {
     const t = timers.current;
@@ -59,19 +127,29 @@ export default function Invitation({ recipient }: { recipient: InvitationRecipie
       const r = setTimeout(() => setPhase("site"), 0);
       return () => clearTimeout(r);
     }
-    // If the video can't start (autoplay blocked / file missing) skip ahead anyway.
+    // Fallback if video autoplay blocked
     const fallback = setTimeout(begin, 4000);
-    return () => { clearTimeout(fallback); t.forEach(clearTimeout); };
+    return () => {
+      clearTimeout(fallback);
+      t.forEach(clearTimeout);
+    };
   }, [begin]);
 
   return (
     <div className="inv" data-phase={phase}>
-      {/* cinematic owl-post video */}
+      {/* Skip button for quick navigation */}
+      {phase !== "site" && (
+        <button className="skip-btn" onClick={skipToSite} aria-label="Skip intro to invitation">
+          Skip to Invitation ✦
+        </button>
+      )}
+
+      {/* Cinematic owl-post video */}
       <div className="stage">
         <video
           className="stage-video"
           src="/assets/owl-flight.mp4"
-          poster="/assets/night-sky.jpg"
+          poster="/assets/owl-flight.jpg"
           muted
           playsInline
           autoPlay
@@ -82,19 +160,95 @@ export default function Invitation({ recipient }: { recipient: InvitationRecipie
         <div className="vignette" />
       </div>
 
-      {/* the scroll — rollers sit over the video's scroll, then unroll */}
-      <div className="rollwrap" aria-hidden="true">
-        <div className="roller top" />
-        <div className="roller bot" />
-        <div className="seal"><i /></div>
-        <div className="burst" />
+      {/* Authentic Rolled Parchment Scroll Container */}
+      <div className="scroll-ceremony" aria-label="Imperial Summons Scroll">
+        {/* Closed Scroll Body (Presented after owl flight) */}
+        <div
+          className="authentic-closed-scroll"
+          onClick={phase === "present" ? openScroll : undefined}
+          role={phase === "present" ? "button" : undefined}
+          tabIndex={phase === "present" ? 0 : -1}
+          onKeyDown={(e) => {
+            if (phase === "present" && (e.key === "Enter" || e.key === " ")) {
+              e.preventDefault();
+              openScroll();
+            }
+          }}
+        >
+          {/* Authentic Rolled Parchment Letter Asset */}
+          <div className="scroll-graphic">
+            <Image
+              src="/assets/authentic-scroll-cropped.png"
+              alt="Authentic Rolled Parchment Scroll"
+              width={881}
+              height={326}
+              className="scroll-img"
+              priority
+            />
+          </div>
+
+          {/* Interactive Wax Seal on the Flap */}
+          <div className="wax-seal-interactive">
+            {phase === "unroll" || phase === "expand" || phase === "site" ? (
+              <div className="seal-cracked">
+                <div className="seal-half left">
+                  <Image src="/assets/authentic-seal-l.png" alt="Broken Seal Left" width={156} height={156} priority />
+                </div>
+                <div className="seal-half right">
+                  <Image src="/assets/authentic-seal-r.png" alt="Broken Seal Right" width={156} height={156} priority />
+                </div>
+              </div>
+            ) : (
+              <div className="seal-intact">
+                <Image src="/assets/authentic-seal.png" alt="Wax Seal" width={156} height={156} priority />
+                <div className="seal-aura" />
+              </div>
+            )}
+            <div className="magic-burst" />
+          </div>
+
+          {/* Call to action prompt */}
+          {phase === "present" && (
+            <div className="break-seal-prompt">
+              <span className="prompt-spark">✦</span>
+              <span>Tap the Wax Seal to Break &amp; Open</span>
+              <span className="prompt-spark">✦</span>
+            </div>
+          )}
+        </div>
+
+        {/* Authentic Top & Bottom Parchment Rolls (Active during unrolling) */}
+        <div className="authentic-unrolling-rolls" aria-hidden="true">
+          <div className="authentic-roll top">
+            <Image
+              src="/assets/authentic-top-roll.png"
+              alt="Parchment Top Roll"
+              width={881}
+              height={68}
+              className="roll-img"
+              priority
+            />
+          </div>
+          <div className="authentic-roll bot">
+            <Image
+              src="/assets/authentic-bot-roll.png"
+              alt="Parchment Bottom Roll"
+              width={881}
+              height={68}
+              className="roll-img"
+              priority
+            />
+          </div>
+        </div>
       </div>
 
-      {/* the website */}
+      {/* The website / invitation document */}
       <main className="site">
         <div className="night" />
         <Embers />
-        <div className="paper-wrap"><div className="paper" style={{ clipPath: TORN }} /></div>
+        <div className="paper-wrap">
+          <div className="paper" style={{ clipPath: TORN }} />
+        </div>
         <Hero recipient={recipient} />
         {phase === "site" && <Body />}
       </main>
